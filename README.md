@@ -5,6 +5,12 @@
 
 ---
 
+## Demo Video
+
+[Watch on Loom](https://www.loom.com/share/e503cf141b6843cc99259a757483f338)
+
+---
+
 ## Architecture
 
 ```
