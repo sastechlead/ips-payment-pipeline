@@ -97,15 +97,28 @@ RECEIVED → VALIDATED → COMPLETED
 
 ### Prerequisites
 - Docker & Docker Compose installed
-- Ports 3000–3005, 5432, 9092 available
+- Ports 3000–3005, 9092 available
 
-### Start everything
+### Step 1 — Copy environment files
+```bash
+cp services/intake-api/.env.example          services/intake-api/.env
+cp services/validation-service/.env.example  services/validation-service/.env
+cp services/posting-service/.env.example     services/posting-service/.env
+cp services/notification-service/.env.example services/notification-service/.env
+cp services/query-service/.env.example       services/query-service/.env
+```
+
+> .env files are only needed for running services locally without Docker. Docker uses environment variables defined in docker-compose.yml directly.
+
+### Step 2 — Start everything
 ```bash
 cd ips-pipeline
 docker-compose up --build
 ```
 
-> First startup takes ~2 minutes for Kafka to be ready.
+> Kafka topics are created automatically by the `kafka-init` container on every startup. No manual steps needed.
+
+---
 
 ### Stop everything
 ```bash

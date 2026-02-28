@@ -67,6 +67,29 @@ services:
       - ips-network
 
   # ─────────────────────────────────────────
+  # KAFKA TOPIC INITIALIZER
+  # ─────────────────────────────────────────
+
+  kafka-init:
+    image: confluentinc/cp-kafka:7.5.0
+    container_name: kafka-init
+    depends_on:
+      kafka:
+        condition: service_healthy
+    entrypoint: [ "/bin/sh", "-c" ]
+    command: |
+      "
+      kafka-topics --bootstrap-server kafka:9092 --create --if-not-exists --topic ips.tx.received --partitions 1 --replication-factor 1
+      kafka-topics --bootstrap-server kafka:9092 --create --if-not-exists --topic ips.tx.validated --partitions 1 --replication-factor 1
+      kafka-topics --bootstrap-server kafka:9092 --create --if-not-exists --topic ips.tx.rejected --partitions 1 --replication-factor 1
+      kafka-topics --bootstrap-server kafka:9092 --create --if-not-exists --topic ips.tx.completed --partitions 1 --replication-factor 1
+      kafka-topics --bootstrap-server kafka:9092 --create --if-not-exists --topic ips.tx.failed --partitions 1 --replication-factor 1
+      echo 'All Kafka topics created.'
+      "
+    networks:
+      - ips-network
+
+  # ─────────────────────────────────────────
   # MICROSERVICES
   # ─────────────────────────────────────────
 
@@ -85,6 +108,8 @@ services:
         condition: service_healthy
       kafka:
         condition: service_healthy
+      kafka-init:
+        condition: service_completed_successfully
     networks:
       - ips-network
 
@@ -104,6 +129,8 @@ services:
         condition: service_healthy
       kafka:
         condition: service_healthy
+      kafka-init:
+        condition: service_completed_successfully
     networks:
       - ips-network
 
@@ -122,6 +149,8 @@ services:
         condition: service_healthy
       kafka:
         condition: service_healthy
+      kafka-init:
+        condition: service_completed_successfully
     networks:
       - ips-network
 
@@ -140,6 +169,8 @@ services:
         condition: service_healthy
       kafka:
         condition: service_healthy
+      kafka-init:
+        condition: service_completed_successfully
     networks:
       - ips-network
 
