@@ -79,7 +79,6 @@ No phase was skipped or rushed.
 | No authentication on APIs | Add JWT on intake-api |
 | No Kafka ACLs | Add mTLS + ACLs per service |
 | No unit tests | Add Jest tests for validation + posting logic |
-| Topics pre-created manually | Add Kafka init container in docker-compose |
 | Single Kafka broker | Add replication for HA |
 
 ---
@@ -89,5 +88,4 @@ No phase was skipped or rushed.
 2. OpenAPI/Swagger on each service
 3. Kafka topic names as environment variables
 4. JWT authentication on intake-api
-5. Kafka topic initializer container in docker-compose
-6. ES Modules across all services
+5. ES Modules across all services
