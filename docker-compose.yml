@@ -1,0 +1,176 @@
+version: '3.8'
+
+networks:
+  ips-network:
+    driver: bridge
+
+volumes:
+  postgres-data:
+
+services:
+
+  # ─────────────────────────────────────────
+  # INFRASTRUCTURE
+  # ─────────────────────────────────────────
+
+  zookeeper:
+    image: confluentinc/cp-zookeeper:7.5.0
+    container_name: zookeeper
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
+    networks:
+      - ips-network
+
+  kafka:
+    image: confluentinc/cp-kafka:7.5.0
+    container_name: kafka
+    depends_on:
+      - zookeeper
+    ports:
+      - "9092:9092"
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092,PLAINTEXT_HOST://localhost:29092
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
+    healthcheck:
+      test: ["CMD-SHELL", "kafka-topics --bootstrap-server localhost:9092 --list"]
+      interval: 15s
+      timeout: 10s
+      retries: 10
+      start_period: 30s
+    networks:
+      - ips-network
+
+  postgres:
+    image: postgres:15
+    container_name: postgres
+    environment:
+      POSTGRES_USER: ipsuser
+      POSTGRES_PASSWORD: ipspassword
+      POSTGRES_DB: postgres
+    volumes:
+      - ./db:/docker-entrypoint-initdb.d
+      - postgres-data:/var/lib/postgresql/data
+    ports:
+      - "5433:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ipsuser -d postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    networks:
+      - ips-network
+
+  # ─────────────────────────────────────────
+  # MICROSERVICES
+  # ─────────────────────────────────────────
+
+  intake-api:
+    build: ./services/intake-api
+    container_name: intake-api
+    ports:
+      - "3001:3001"
+    environment:
+      PORT: 3001
+      DATABASE_URL: postgresql://ipsuser:ipspassword@postgres:5432/intake_db
+      KAFKA_BROKERS: kafka:9092
+      KAFKA_GROUP_ID: intake-api-group
+    depends_on:
+      postgres:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+    networks:
+      - ips-network
+
+  validation-service:
+    build: ./services/validation-service
+    container_name: validation-service
+    ports:
+      - "3002:3002"
+    environment:
+      PORT: 3002
+      DATABASE_URL: postgresql://ipsuser:ipspassword@postgres:5432/validation_db
+      KAFKA_BROKERS: kafka:9092
+      KAFKA_GROUP_ID: validation-service-group
+      MAX_AMOUNT_LIMIT: 5000
+    depends_on:
+      postgres:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+    networks:
+      - ips-network
+
+  posting-service:
+    build: ./services/posting-service
+    container_name: posting-service
+    ports:
+      - "3003:3003"
+    environment:
+      PORT: 3003
+      DATABASE_URL: postgresql://ipsuser:ipspassword@postgres:5432/posting_db
+      KAFKA_BROKERS: kafka:9092
+      KAFKA_GROUP_ID: posting-service-group
+    depends_on:
+      postgres:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+    networks:
+      - ips-network
+
+  notification-service:
+    build: ./services/notification-service
+    container_name: notification-service
+    ports:
+      - "3004:3004"
+    environment:
+      PORT: 3004
+      DATABASE_URL: postgresql://ipsuser:ipspassword@postgres:5432/notification_db
+      KAFKA_BROKERS: kafka:9092
+      KAFKA_GROUP_ID: notification-service-group
+    depends_on:
+      postgres:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+    networks:
+      - ips-network
+
+  query-service:
+    build: ./services/query-service
+    container_name: query-service
+    ports:
+      - "3005:3005"
+    environment:
+      PORT: 3005
+      INTAKE_DB_URL: postgresql://ipsuser:ipspassword@postgres:5432/intake_db
+      VALIDATION_DB_URL: postgresql://ipsuser:ipspassword@postgres:5432/validation_db
+      POSTING_DB_URL: postgresql://ipsuser:ipspassword@postgres:5432/posting_db
+      NOTIFICATION_DB_URL: postgresql://ipsuser:ipspassword@postgres:5432/notification_db
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - ips-network
+
+  # ─────────────────────────────────────────
+  # REACT UI
+  # ─────────────────────────────────────────
+
+  react-ui:
+    build: ./react-ui
+    container_name: react-ui
+    ports:
+      - "3000:80"
+    depends_on:
+      - query-service
+      - intake-api
+    networks:
+      - ips-network
